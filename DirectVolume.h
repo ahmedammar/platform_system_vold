@@ -1,6 +1,8 @@
 /*
  * Copyright (C) 2008 The Android Open Source Project
  *
+ * Copyright (C) 2010 Freescale Semiconductor Inc.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -27,7 +29,7 @@ typedef android::List<char *> PathCollection;
 
 class DirectVolume : public Volume {
 public:
-    static const int MAX_PARTITIONS = 4;
+    static const int MAX_PARTITIONS = 6;
 protected:
     PathCollection *mPaths;
     int            mDiskMajor;
