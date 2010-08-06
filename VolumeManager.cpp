@@ -1048,25 +1048,6 @@ int VolumeManager::shareVolume(const char *label, const char *method) {
         return -1;
     }
 
-    int fd;
-    char nodepath[255];
-    snprintf(nodepath,
-             sizeof(nodepath), "/dev/block/vold/%d:%d",
-             MAJOR(d), MINOR(d));
-
-    if ((fd = open("/sys/devices/platform/fsl-usb2-udc/gadget/lun0/file",
-                   O_WRONLY)) < 0) {
-        SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
-        return -1;
-    }
-
-    if (write(fd, nodepath, strlen(nodepath)) < 0) {
-        SLOGE("Unable to write to ums lunfile (%s)", strerror(errno));
-        close(fd);
-        return -1;
-    }
-
-    close(fd);
     v->handleVolumeShared();
     if (mUmsSharingCount++ == 0) {
         FILE* fp;

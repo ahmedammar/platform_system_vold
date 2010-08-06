@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <fcntl.h>
 
 #include <linux/kdev_t.h>
 
@@ -29,6 +30,7 @@
 #include "DirectVolume.h"
 #include "VolumeManager.h"
 #include "ResponseCode.h"
+#include "Fat.h"
 
 // #define PARTITION_DEBUG
 
@@ -74,6 +76,56 @@ dev_t DirectVolume::getShareDevice() {
 }
 
 void DirectVolume::handleVolumeShared() {
+    int fd;
+    char nodepath[255];
+    dev_t d,deviceNodes[MAX_PARTS];
+    int n, i;
+
+    n = getDeviceNodes((dev_t *) &deviceNodes, MAX_PARTS);
+    if (!n) {
+        SLOGE("Failed to get device nodes (%s)\n", strerror(errno));
+        return ;
+    }
+
+    for (i = 0; i < n; i++) {
+        char devicePath[255];
+
+        sprintf(devicePath, "/dev/block/vold/%d:%d", MAJOR(deviceNodes[i]),
+                MINOR(deviceNodes[i]));
+
+        SLOGI("%s being considered for volume %s\n", devicePath, getLabel());
+
+
+        if (Fat::check(devicePath)) {
+            if (errno == ENODATA) {
+                SLOGW("%s does not contain a FAT filesystem\n", devicePath);
+                continue;
+            }
+            errno = EIO;
+            /* Badness - abort the mount */
+            SLOGE("%s failed FS checks (%s)", devicePath, strerror(errno));
+            return;
+        }
+        d = deviceNodes[i];
+        break;
+    }
+
+    snprintf(nodepath,
+             sizeof(nodepath), "/dev/block/vold/%d:%d",
+             MAJOR(d), MINOR(d));
+
+    if ((fd = open("/sys/devices/platform/fsl-usb2-udc/gadget/lun0/file",
+                   O_WRONLY)) < 0) {
+        SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
+    }
+
+    if (write(fd, nodepath, strlen(nodepath)) < 0) {
+        SLOGE("Unable to write to ums lunfile (%s)", strerror(errno));
+        close(fd);
+    }
+
+    close(fd);
+
     setState(Volume::State_Shared);
 }
 
