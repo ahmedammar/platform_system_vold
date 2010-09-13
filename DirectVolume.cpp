@@ -32,7 +32,7 @@
 #include "ResponseCode.h"
 #include "Fat.h"
 
-// #define PARTITION_DEBUG
+//#define PARTITION_DEBUG
 
 DirectVolume::DirectVolume(VolumeManager *vm, const char *label,
                            const char *mount_point, int partIdx) :
@@ -80,7 +80,9 @@ void DirectVolume::handleVolumeShared() {
     char nodepath[255];
     dev_t d,deviceNodes[MAX_PARTS];
     int n, i;
+    char buff[11];
 
+    d = NULL;
     n = getDeviceNodes((dev_t *) &deviceNodes, MAX_PARTS);
     if (!n) {
         SLOGE("Failed to get device nodes (%s)\n", strerror(errno));
@@ -115,8 +117,38 @@ void DirectVolume::handleVolumeShared() {
              MAJOR(d), MINOR(d));
 
     if ((fd = open("/sys/devices/platform/fsl-usb2-udc/gadget/lun0/file",
-                   O_WRONLY)) < 0) {
+                   O_RDWR)) < 0) {
         SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
+        return;
+    }
+    //Check if the file has been writen
+    else
+    {    
+        read(fd, buff, 10);
+        buff[10] = '\0';
+        
+        SLOGI("buff is %s.\n", buff);
+        if(!strcmp(buff , "/dev/block"))
+        {
+            if ((fd = open("/sys/devices/platform/fsl-usb2-udc/gadget/lun1/file",
+                   O_RDWR)) < 0) {
+                    SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
+                return;
+            }
+            else
+            {
+                read(fd, buff, 10);
+                buff[10] = '\0';
+                if (!strcmp(buff , "dev_mount"))
+                {
+                    if ((fd = open("/sys/devices/platform/fsl-usb2-udc/gadget/lun2/file",
+                            O_RDWR)) < 0) {
+                        SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
+                        return;
+                    }
+                }
+            }
+        }
     }
 
     if (write(fd, nodepath, strlen(nodepath)) < 0) {
@@ -256,7 +288,7 @@ void DirectVolume::handlePartitionAdded(const char *devpath, NetlinkEvent *evt) 
 #ifdef PARTITION_DEBUG
         SLOGD("Dv:partAdd: Got all partitions - ready to rock!");
 #endif
-        if (getState() != Volume::State_Formatting) {
+    if ((getState() != Volume::State_Formatting) && (getState() != Volume::State_Checking)) {
             setState(Volume::State_Idle);
         }
     } else {
@@ -344,9 +376,11 @@ void DirectVolume::handlePartitionRemoved(const char *devpath, NetlinkEvent *evt
                  getLabel(), getMountpoint(), major, minor);
         mVm->getBroadcaster()->sendBroadcast(ResponseCode::VolumeBadRemoval,
                                              msg, false);
-
-	if (mVm->cleanupAsec(this, true)) {
-            SLOGE("Failed to cleanup ASEC - unmount will probably fail!");
+        if (!strcmp(getLabel(),"sdcard"))
+        {
+	    if (mVm->cleanupAsec(this, true)) {
+                SLOGE("Failed to cleanup ASEC - unmount will probably fail!");
+            }
         }
 
         if (Volume::unmountVol(true)) {

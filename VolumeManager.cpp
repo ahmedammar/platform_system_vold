@@ -1100,6 +1100,33 @@ int VolumeManager::unshareVolume(const char *label, const char *method) {
     }
 
     close(fd);
+
+    if ((fd = open("/sys/devices/platform/fsl-usb2-udc/gadget/lun1/file", O_WRONLY)) < 0) {
+        SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
+        return -1;
+    }
+
+    if (write(fd, &ch, 1) < 0) {
+        SLOGE("Unable to write to ums lunfile (%s)", strerror(errno));
+        close(fd);
+        return -1;
+    }
+
+    close(fd);
+
+    if ((fd = open("/sys/devices/platform/fsl-usb2-udc/gadget/lun2/file", O_WRONLY)) < 0) {
+        SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
+        return -1;
+    }
+
+    if (write(fd, &ch, 1) < 0) {
+        SLOGE("Unable to write to ums lunfile (%s)", strerror(errno));
+        close(fd);
+        return -1;
+    }
+
+    close(fd);
+
     v->handleVolumeUnshared();
     if (--mUmsSharingCount == 0 && mSavedDirtyRatio != -1) {
         FILE* fp;
@@ -1134,7 +1161,8 @@ int VolumeManager::unmountVolume(const char *label, bool force) {
         return -1;
     }
 
-    cleanupAsec(v, force);
+    if (!strcmp(label, "sdcard"))
+        cleanupAsec(v, force);
 
     return v->unmountVol(force);
 }

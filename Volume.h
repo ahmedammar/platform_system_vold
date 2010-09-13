@@ -25,7 +25,7 @@ class VolumeManager;
 class Volume {
 private:
     int mState;
-
+    char devicePath[255];
 public:
     static const int State_Init       = -1;
     static const int State_NoMedia    = 0;

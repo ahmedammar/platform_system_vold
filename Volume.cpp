@@ -287,7 +287,7 @@ int Volume::mountVol() {
                                          errmsg, false);
         errno = ENODEV;
         return -1;
-    } else if (getState() != Volume::State_Idle) {
+    } else if ((getState() != Volume::State_Idle) && (getState() != Volume::State_Pending)) {
         errno = EBUSY;
         return -1;
     }
@@ -306,8 +306,7 @@ int Volume::mountVol() {
     }
 
     for (i = 0; i < n; i++) {
-        char devicePath[255];
-
+        
         sprintf(devicePath, "/dev/block/vold/%d:%d", MAJOR(deviceNodes[i]),
                 MINOR(deviceNodes[i]));
 
@@ -328,37 +327,47 @@ int Volume::mountVol() {
             return -1;
         }
 
-        /*
-         * Mount the device on our internal staging mountpoint so we can
-         * muck with it before exposing it to non priviledged users.
-         */
-        errno = 0;
-        if (Fat::doMount(devicePath, "/mnt/secure/staging", false, false, false,
-                1000, 1015, 0702, true)) {
-            SLOGE("%s failed to mount via VFAT (%s)\n", devicePath, strerror(errno));
-            continue;
+        if (!strcmp(getLabel(), "sdcard"))
+        {
+            /*
+             * Mount the device on our internal staging mountpoint so we can
+             * muck with it before exposing it to non priviledged users.
+             */
+            errno = 0;
+            if (Fat::doMount(devicePath, "/mnt/secure/staging", false, false, 1000, 1015, 0702, true)) {
+                SLOGE("%s failed to mount via VFAT (%s)\n", devicePath, strerror(errno));
+                continue;
+            }
+
+            SLOGI("Device %s, target %s mounted @ /mnt/secure/staging", devicePath, getMountpoint());
+
+            protectFromAutorunStupidity();
+
+            if (createBindMounts()) {
+                SLOGE("Failed to create bindmounts (%s)", strerror(errno));
+                umount("/mnt/secure/staging");
+                setState(Volume::State_Idle);
+               return -1;
+            }
+
+            /*
+             * Now that the bindmount trickery is done, atomically move the
+             * whole subtree to expose it to non priviledged users.
+             */
+            if (doMoveMount("/mnt/secure/staging", getMountpoint(), false)) {
+                SLOGE("Failed to move mount (%s)", strerror(errno));
+                umount("/mnt/secure/staging");
+                setState(Volume::State_Idle);
+                return -1;
+            }
         }
-
-        SLOGI("Device %s, target %s mounted @ /mnt/secure/staging", devicePath, getMountpoint());
-
-        protectFromAutorunStupidity();
-
-        if (createBindMounts()) {
-            SLOGE("Failed to create bindmounts (%s)", strerror(errno));
-            umount("/mnt/secure/staging");
-            setState(Volume::State_Idle);
-            return -1;
-        }
-
-        /*
-         * Now that the bindmount trickery is done, atomically move the
-         * whole subtree to expose it to non priviledged users.
-         */
-        if (doMoveMount("/mnt/secure/staging", getMountpoint(), false)) {
-            SLOGE("Failed to move mount (%s)", strerror(errno));
-            umount("/mnt/secure/staging");
-            setState(Volume::State_Idle);
-            return -1;
+        else 
+        {
+             if (Fat::doMount(devicePath, getMountpoint(), false, false, 1000, 1015, 0702, true)) {
+                SLOGE("%s failed to mount via VFAT (%s)\n", devicePath, strerror(errno));
+                continue;
+            }
+    
         }
         setState(Volume::State_Mounted);
         mCurrentlyMountedKdev = deviceNodes[i];
@@ -514,46 +523,55 @@ int Volume::unmountVol(bool force) {
     setState(Volume::State_Unmounting);
     usleep(1000 * 1000); // Give the framework some time to react
 
-    /*
-     * First move the mountpoint back to our internal staging point
-     * so nobody else can muck with it while we work.
-     */
-    if (doMoveMount(getMountpoint(), SEC_STGDIR, force)) {
-        SLOGE("Failed to move mount %s => %s (%s)", getMountpoint(), SEC_STGDIR, strerror(errno));
-        setState(Volume::State_Mounted);
-        return -1;
+    if (!strcmp(getLabel(), "sdcard"))
+    {
+        /*
+         * First move the mountpoint back to our internal staging point
+         * so nobody else can muck with it while we work.
+         */
+        if (doMoveMount(getMountpoint(), SEC_STGDIR, force)) {
+            SLOGE("Failed to move mount %s => %s (%s)", getMountpoint(), SEC_STGDIR, strerror(errno));
+            setState(Volume::State_Mounted);
+            return -1;
+        }
+
+        protectFromAutorunStupidity();
+
+        /*
+         * Unmount the tmpfs which was obscuring the asec image directory
+         * from non root users
+         */
+
+        if (doUnmount(Volume::SEC_STG_SECIMGDIR, force)) {
+            SLOGE("Failed to unmount tmpfs on %s (%s)", SEC_STG_SECIMGDIR, strerror(errno));
+            goto fail_republish;
+        }
+
+        /*
+         * Remove the bindmount we were using to keep a reference to
+         * the previously obscured directory.
+         */
+
+        if (doUnmount(Volume::SEC_ASECDIR, force)) {
+            SLOGE("Failed to remove bindmount on %s (%s)", SEC_ASECDIR, strerror(errno));
+            goto fail_remount_tmpfs;
+        }
+
+        /*
+         * Finally, unmount the actual block device from the staging dir
+         */
+        if (doUnmount(Volume::SEC_STGDIR, force)) {
+            SLOGE("Failed to unmount %s (%s)", SEC_STGDIR, strerror(errno));
+            goto fail_recreate_bindmount;
+        }
     }
-
-    protectFromAutorunStupidity();
-
-    /*
-     * Unmount the tmpfs which was obscuring the asec image directory
-     * from non root users
-     */
-
-    if (doUnmount(Volume::SEC_STG_SECIMGDIR, force)) {
-        SLOGE("Failed to unmount tmpfs on %s (%s)", SEC_STG_SECIMGDIR, strerror(errno));
-        goto fail_republish;
+    else
+    {
+        if (doUnmount(getMountpoint(), force)) {
+            SLOGE("Failed to unmount %s (%s)", getMountpoint(), strerror(errno));
+            goto fail_remount_storage;
+        }
     }
-
-    /*
-     * Remove the bindmount we were using to keep a reference to
-     * the previously obscured directory.
-     */
-
-    if (doUnmount(Volume::SEC_ASECDIR, force)) {
-        SLOGE("Failed to remove bindmount on %s (%s)", SEC_ASECDIR, strerror(errno));
-        goto fail_remount_tmpfs;
-    }
-
-    /*
-     * Finally, unmount the actual block device from the staging dir
-     */
-    if (doUnmount(Volume::SEC_STGDIR, force)) {
-        SLOGE("Failed to unmount %s (%s)", SEC_STGDIR, strerror(errno));
-        goto fail_recreate_bindmount;
-    }
-
     SLOGI("%s unmounted sucessfully", getMountpoint());
 
     setState(Volume::State_Idle);
@@ -576,6 +594,11 @@ fail_remount_tmpfs:
 fail_republish:
     if (doMoveMount(SEC_STGDIR, getMountpoint(), force)) {
         SLOGE("Failed to republish mount after failure! - Storage will appear offline!");
+        goto out_nomedia;
+    }
+fail_remount_storage:
+    if (Fat::doMount(devicePath, getMountpoint(), false, false, 1000, 1015, 0702, true)){
+        SLOGE("Failed to restore storage!");
         goto out_nomedia;
     }
 
