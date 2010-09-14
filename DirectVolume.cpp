@@ -95,8 +95,9 @@ void DirectVolume::handleVolumeShared() {
         sprintf(devicePath, "/dev/block/vold/%d:%d", MAJOR(deviceNodes[i]),
                 MINOR(deviceNodes[i]));
 
+#ifdef PARTITION_DEBUG
         SLOGI("%s being considered for volume %s\n", devicePath, getLabel());
-
+#endif
 
         if (Fat::check(devicePath)) {
             if (errno == ENODATA) {
@@ -127,9 +128,9 @@ void DirectVolume::handleVolumeShared() {
         read(fd, buff, 10);
         buff[10] = '\0';
         
-        SLOGI("buff is %s.\n", buff);
         if(!strcmp(buff , "/dev/block"))
         {
+            close(fd);
             if ((fd = open("/sys/devices/platform/fsl-usb2-udc/gadget/lun1/file",
                    O_RDWR)) < 0) {
                     SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
@@ -137,10 +138,15 @@ void DirectVolume::handleVolumeShared() {
             }
             else
             {
+                for (i = 0; i < 11; i++)
+                    buff[i] = 0;
+
                 read(fd, buff, 10);
+
                 buff[10] = '\0';
-                if (!strcmp(buff , "dev_mount"))
+                if (!strcmp(buff , "/dev/block"))
                 {
+                    close(fd);
                     if ((fd = open("/sys/devices/platform/fsl-usb2-udc/gadget/lun2/file",
                             O_RDWR)) < 0) {
                         SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
@@ -170,6 +176,9 @@ int DirectVolume::handleBlockEvent(NetlinkEvent *evt) {
 
     PathCollection::iterator  it;
     for (it = mPaths->begin(); it != mPaths->end(); ++it) {
+#ifdef PARTITION_DEBUG
+        SLOGD("dp:%s,*it:%s.", dp, *it);
+#endif
         if (!strncmp(dp, *it, strlen(*it))) {
             /* We can handle this disk */
             int action = evt->getAction();
