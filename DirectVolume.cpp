@@ -89,7 +89,7 @@ void DirectVolume::handleVolumeShared() {
         return ;
     }
 
-    for (i = 0; i < n; i++) {
+    for (i = 0; i < n; i++) { 
         char devicePath[255];
 
         sprintf(devicePath, "/dev/block/vold/%d:%d", MAJOR(deviceNodes[i]),

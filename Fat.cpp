@@ -91,7 +91,7 @@ int Fat::check(const char *fsPath) {
 
     return 0;
 }
-
+ 
 int Fat::doMount(const char *fsPath, const char *mountPoint,
                  bool ro, bool remount, bool executable,
                  int ownerUid, int ownerGid, int permMask, bool createLost) {

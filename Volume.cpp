@@ -110,7 +110,11 @@ Volume::Volume(VolumeManager *vm, const char *label, const char *mount_point) {
     mMountpoint = strdup(mount_point);
     mState = Volume::State_Init;
     mCurrentlyMountedKdev = -1;
-    mPartIdx = -1;
+
+    for (int i = 0; i < 255; i++)
+    {
+        devicePath[i] = 0;
+    }
 }
 
 Volume::~Volume() {
@@ -211,6 +215,7 @@ int Volume::formatVol() {
         return -1;
     }
 
+<<<<<<< HEAD:Volume.cpp
     bool formatEntireDevice = (mPartIdx == -1);
     char devicePath[255];
     dev_t diskNode = getDiskDevice();
@@ -236,6 +241,23 @@ int Volume::formatVol() {
         SLOGI("Formatting volume %s (%s)", getLabel(), devicePath);
     }
 
+=======
+    // Just format one partition but not the whole disk
+    if (devicePath[0] == 0)
+    {
+        dev_t diskNode = getDiskDevice();
+        dev_t partNode = MKDEV(MAJOR(diskNode), 1); // XXX: Hmmm
+
+        sprintf(devicePath, "/dev/block/vold/%d:%d",
+                MAJOR(diskNode), MINOR(diskNode));
+    }
+
+    if (mDebug) {
+        SLOGI("Formatting volume %s (%s)", getLabel(), devicePath);
+    }
+    setState(Volume::State_Formatting);
+
+>>>>>>> ENGR00125930 After format sdcard,can't mount it again.:Volume.cpp
     if (Fat::format(devicePath, 0)) {
         SLOGE("Failed to format (%s)", strerror(errno));
         goto err;
