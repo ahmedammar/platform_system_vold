@@ -179,7 +179,31 @@ int DirectVolume::handleBlockEvent(NetlinkEvent *evt) {
 #ifdef PARTITION_DEBUG
         SLOGD("dp:%s,*it:%s.", dp, *it);
 #endif
+
         if (!strncmp(dp, *it, strlen(*it))) {
+
+            /*Check if the disk is existed*/
+            int fd;
+            char buf[32];
+            char name[128];
+
+            strcpy(name, "/sys");
+            strcpy(name + strlen(name), dp);
+            strcpy(name + strlen(name), "/size");
+            fd = open(name, O_RDONLY);
+            
+            if(fd >= 0) {
+                read(fd, buf, 32);
+                close(fd);
+#ifdef PARTITION_DEBUG
+                SLOGI("The size is %d.", atoi(buf));
+#endif
+                if (atoi(buf) <= 0)
+                {
+                    return 0;
+                }
+            }
+            
             /* We can handle this disk */
             int action = evt->getAction();
             const char *devtype = evt->findParam("DEVTYPE");
