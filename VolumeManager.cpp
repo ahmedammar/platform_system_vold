@@ -170,8 +170,9 @@ void VolumeManager::notifyUmsAvailable(bool available) {
 
 void VolumeManager::handleSwitchEvent(NetlinkEvent *evt) {
     const char *devpath = evt->findParam("DEVPATH");
-    const char *name = evt->findParam("SWITCH_NAME");
-    const char *state = evt->findParam("SWITCH_STATE");
+    const char *name = evt->findParam("FUNCTION");
+    const char *state = evt->findParam("STATE");
+    const char *enabled = evt->findParam("ENABLED");
 
     if (!name || !state) {
         SLOGW("Switch %s event missing name/state info", devpath);
@@ -1089,7 +1090,7 @@ int VolumeManager::unshareVolume(const char *label, const char *method) {
 
     int fd;
 
-    if ((fd = open("/sys/devices/platform/fsl-usb2-udc/gadget/lun0/file", O_WRONLY)) < 0) {
+    if ((fd = open("/sys/devices/platform/usb_mass_storage/lun0/file", O_WRONLY)) < 0) {
         SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
         return -1;
     }
@@ -1103,7 +1104,7 @@ int VolumeManager::unshareVolume(const char *label, const char *method) {
 
     close(fd);
 
-    if ((fd = open("/sys/devices/platform/fsl-usb2-udc/gadget/lun1/file", O_WRONLY)) < 0) {
+    if ((fd = open("/sys/devices/platform/usb_mass_storage/lun1/file", O_WRONLY)) < 0) {
         SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
         return -1;
     }
@@ -1116,7 +1117,7 @@ int VolumeManager::unshareVolume(const char *label, const char *method) {
 
     close(fd);
 
-    if ((fd = open("/sys/devices/platform/fsl-usb2-udc/gadget/lun2/file", O_WRONLY)) < 0) {
+    if ((fd = open("/sys/devices/platform/usb_mass_storage/lun2/file", O_WRONLY)) < 0) {
         SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
         return -1;
     }

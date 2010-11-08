@@ -117,7 +117,7 @@ void DirectVolume::handleVolumeShared() {
              sizeof(nodepath), "/dev/block/vold/%d:%d",
              MAJOR(d), MINOR(d));
 
-    if ((fd = open("/sys/devices/platform/fsl-usb2-udc/gadget/lun0/file",
+    if ((fd = open("/sys/devices/platform/usb_mass_storage/lun0/file",
                    O_RDWR)) < 0) {
         SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
         return;
@@ -131,7 +131,7 @@ void DirectVolume::handleVolumeShared() {
         if(!strcmp(buff , "/dev/block"))
         {
             close(fd);
-            if ((fd = open("/sys/devices/platform/fsl-usb2-udc/gadget/lun1/file",
+            if ((fd = open("/sys/devices/platform/usb_mass_storage/lun1/file",
                    O_RDWR)) < 0) {
                     SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
                 return;
@@ -147,7 +147,7 @@ void DirectVolume::handleVolumeShared() {
                 if (!strcmp(buff , "/dev/block"))
                 {
                     close(fd);
-                    if ((fd = open("/sys/devices/platform/fsl-usb2-udc/gadget/lun2/file",
+                    if ((fd = open("/sys/devices/platform/usb_mass_storage/lun2/file",
                             O_RDWR)) < 0) {
                         SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
                         return;
