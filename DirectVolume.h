@@ -37,6 +37,7 @@ protected:
     int            mPartMinors[MAX_PARTITIONS];
     int            mDiskNumParts;
     unsigned char  mPendingPartMap;
+    bool           mInsertBroadCasted;
 
 public:
     DirectVolume(VolumeManager *vm, const char *label, const char *mount_point, int partIdx);

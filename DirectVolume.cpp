@@ -46,6 +46,7 @@ DirectVolume::DirectVolume(VolumeManager *vm, const char *label,
     mDiskMajor = -1;
     mDiskMinor = -1;
     mDiskNumParts = 0;
+    mInsertBroadCasted = false;
 
     setState(Volume::State_NoMedia);
 }
@@ -284,8 +285,18 @@ void DirectVolume::handleDiskAdded(const char *devpath, NetlinkEvent *evt) {
 
     snprintf(msg, sizeof(msg), "Volume %s %s disk inserted (%d:%d)",
              getLabel(), getMountpoint(), mDiskMajor, mDiskMinor);
-    mVm->getBroadcaster()->sendBroadcast(ResponseCode::VolumeDiskInserted,
+
+    if(!tmp) {
+        mVm->getBroadcaster()->sendBroadcast(ResponseCode::VolumeDiskInserted,
                                              msg, false);
+        mInsertBroadCasted = true;
+    }
+    else{
+        //We will wait to broadcast diskinsert by the partition uevent getted
+        //In case the block will be mounted without right partition major/minor number
+        mInsertBroadCasted = false;
+        SLOGD("Wait partition uevent for DiskInserted broadcast");
+    }
 }
 
 void DirectVolume::handlePartitionAdded(const char *devpath, NetlinkEvent *evt) {
@@ -317,6 +328,16 @@ void DirectVolume::handlePartitionAdded(const char *devpath, NetlinkEvent *evt) 
     mPartMinors[part_num -1] = minor;
 
     mPendingPartMap &= ~(1 << part_num);
+    if(!mInsertBroadCasted) {
+        char msg[255];
+        SLOGD("Send Disk Insert Broadcast in partition adding");
+        snprintf(msg, sizeof(msg), "Volume %s %s disk inserted (%d:%d)",
+             getLabel(), getMountpoint(), mDiskMajor, mDiskMinor);
+        mVm->getBroadcaster()->sendBroadcast(ResponseCode::VolumeDiskInserted,
+                                             msg, false);
+        mInsertBroadCasted = true;
+    }
+
     if (!mPendingPartMap) {
 #ifdef PARTITION_DEBUG
         SLOGD("Dv:partAdd: Got all partitions - ready to rock!");
@@ -380,6 +401,7 @@ void DirectVolume::handleDiskRemoved(const char *devpath, NetlinkEvent *evt) {
              getLabel(), getMountpoint(), major, minor);
     mVm->getBroadcaster()->sendBroadcast(ResponseCode::VolumeDiskRemoved,
                                              msg, false);
+    mInsertBroadCasted = false;
     setState(Volume::State_NoMedia);
 }
 
