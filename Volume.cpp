@@ -215,30 +215,20 @@ int Volume::formatVol() {
         return -1;
     }
 
-    bool formatEntireDevice = (mPartIdx == -1);
-    char devicePath[255];
-    dev_t diskNode = getDiskDevice();
-    dev_t partNode = MKDEV(MAJOR(diskNode), (formatEntireDevice ? 1 : mPartIdx));
+    // Just format one partition but not the whole disk
+    if (devicePath[0] == 0)
+    {
+        dev_t diskNode = getDiskDevice();
+        dev_t partNode = MKDEV(MAJOR(diskNode), 1); // XXX: Hmmm
 
-    setState(Volume::State_Formatting);
-
-    // Only initialize the MBR if we are formatting the entire device
-    if (formatEntireDevice) {
         sprintf(devicePath, "/dev/block/vold/%d:%d",
                 MAJOR(diskNode), MINOR(diskNode));
-
-        if (initializeMbr(devicePath)) {
-            SLOGE("Failed to initialize MBR (%s)", strerror(errno));
-            goto err;
-        }
     }
-
-    sprintf(devicePath, "/dev/block/vold/%d:%d",
-            MAJOR(partNode), MINOR(partNode));
 
     if (mDebug) {
         SLOGI("Formatting volume %s (%s)", getLabel(), devicePath);
     }
+    setState(Volume::State_Formatting);
 
     if (Fat::format(devicePath, 0)) {
         SLOGE("Failed to format (%s)", strerror(errno));
