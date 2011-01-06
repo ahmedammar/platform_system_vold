@@ -194,6 +194,7 @@ void VolumeManager::handleSwitchEvent(NetlinkEvent *evt) {
 void VolumeManager::handleUsbCompositeEvent(NetlinkEvent *evt) {
     const char *function = evt->findParam("FUNCTION");
     const char *enabled = evt->findParam("ENABLED");
+    const char *state = evt->findParam("STATE");
 
     if (!function || !enabled) {
         SLOGW("usb_composite event missing function/enabled info");
@@ -202,7 +203,13 @@ void VolumeManager::handleUsbCompositeEvent(NetlinkEvent *evt) {
 
     if (!strcmp(function, "usb_mass_storage")) {
         bool oldAvailable = massStorageAvailable();
-        mUsbMassStorageEnabled = !strcmp(enabled, "1");
+        mUsMassStorageEnabled = !strcmp(enabled, "1");
+
+        if (state != NULL && !strcmp(state, "online"))
+            mUsbConnected = 1;
+        else
+            mUsbConnected = 0;
+
         SLOGD("usb_mass_storage function %s", mUsbMassStorageEnabled ? "enabled" : "disabled");
         bool newAvailable = massStorageAvailable();
         if (newAvailable != oldAvailable) {
