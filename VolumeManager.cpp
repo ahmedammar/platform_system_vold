@@ -203,7 +203,7 @@ void VolumeManager::handleUsbCompositeEvent(NetlinkEvent *evt) {
 
     if (!strcmp(function, "usb_mass_storage")) {
         bool oldAvailable = massStorageAvailable();
-        mUsMassStorageEnabled = !strcmp(enabled, "1");
+        mUsbMassStorageEnabled = !strcmp(enabled, "1");
 
         if (state != NULL && !strcmp(state, "online"))
             mUsbConnected = 1;
