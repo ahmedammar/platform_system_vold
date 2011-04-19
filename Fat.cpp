@@ -160,7 +160,7 @@ int Fat::format(const char *fsPath, unsigned int numSectors) {
     args[3] = "-O";
     args[4] = "android";
     args[5] = "-c";
-    args[6] = "8";
+    args[6] = "64";
 
     if (numSectors) {
         char tmp[32];
