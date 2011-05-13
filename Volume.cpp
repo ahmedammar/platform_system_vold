@@ -328,7 +328,7 @@ int Volume::mountVol() {
              * muck with it before exposing it to non priviledged users.
              */
             errno = 0;
-            if (Fat::doMount(devicePath, "/mnt/secure/staging", false, false, false, 1000, 1015, 0702, true)) {
+            if (Fat::doMount(devicePath, "/mnt/secure/staging", false, false, false, 1000, 1015, 0002, true)) {
                 SLOGE("%s failed to mount via VFAT (%s)\n", devicePath, strerror(errno));
                 continue;
             }
@@ -357,11 +357,23 @@ int Volume::mountVol() {
         }
         else 
         {
-             if (Fat::doMount(devicePath, getMountpoint(), false, false, false, 1000, 1015, 0702, true)) {
+            int fd = open(getMountpoint(), O_DIRECTORY, O_RDWR);
+            if (fd == -1) {
+                if(mkdir(getMountpoint(),  0777) == -1) {
+                    SLOGE("Can't create the mount path: %s, error:%d.", getMountpoint(), errno);
+                    break;
+                }
+            }
+            close(fd);            
+
+            if ( !isMountpointMounted("/mnt/sdcard") ) {
+                break;
+            }
+            			 	
+            if (Fat::doMount(devicePath, getMountpoint(), false, false, false, 1000, 1015, 0002, true)) {
                 SLOGE("%s failed to mount via VFAT (%s)\n", devicePath, strerror(errno));
                 continue;
             }
-    
         }
         setState(Volume::State_Mounted);
         mCurrentlyMountedKdev = deviceNodes[i];
@@ -642,3 +654,4 @@ int Volume::initializeMbr(const char *deviceNode) {
 
     return rc;
 }
+
