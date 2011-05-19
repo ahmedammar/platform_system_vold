@@ -293,24 +293,23 @@ int Volume::mountVol() {
         return 0;
     }
 
-    n = getDeviceNodes((dev_t *) &deviceNodes, 4);
+    n = getDeviceNodes((dev_t *) &deviceNodes, 6);
     if (!n) {
         SLOGE("Failed to get device nodes (%s)\n", strerror(errno));
         return -1;
     }
 
     for (i = 0; i < n; i++) {
-        
         sprintf(devicePath, "/dev/block/vold/%d:%d", MAJOR(deviceNodes[i]),
                 MINOR(deviceNodes[i]));
 
-        SLOGI("%s being considered for volume %s\n", devicePath, getLabel());
+        SLOGI("%s is checking for volume %s\n", devicePath, getLabel());
 
         errno = 0;
         setState(Volume::State_Checking);
 
         if (Fat::check(devicePath)) {
-            if (errno == ENODATA) {
+            if ((errno == ENODATA) || (errno == ENOEXEC)) {
                 SLOGW("%s does not contain a FAT filesystem\n", devicePath);
                 continue;
             }

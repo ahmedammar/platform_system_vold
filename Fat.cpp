@@ -84,7 +84,7 @@ int Fat::check(const char *fsPath) {
 
         default:
             SLOGE("Filesystem check failed (unknown exit code %d)", rc);
-            errno = EIO;
+            errno = rc;
             return -1;
         }
     } while (0);

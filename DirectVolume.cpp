@@ -101,7 +101,7 @@ void DirectVolume::handleVolumeShared() {
 #endif
 
         if (Fat::check(devicePath)) {
-            if (errno == ENODATA) {
+            if ((errno == ENODATA) || (errno == ENOEXEC)) {
                 SLOGW("%s does not contain a FAT filesystem\n", devicePath);
                 continue;
             }
@@ -266,7 +266,7 @@ void DirectVolume::handleDiskAdded(const char *devpath, NetlinkEvent *evt) {
     int partmask = 0;
     int i;
     for (i = 1; i <= mDiskNumParts; i++) {
-        partmask |= (1 << i);
+        partmask = (partmask << 1);
     }
     mPendingPartMap = partmask;
 
@@ -327,7 +327,7 @@ void DirectVolume::handlePartitionAdded(const char *devpath, NetlinkEvent *evt) 
 #endif
     mPartMinors[part_num -1] = minor;
 
-    mPendingPartMap &= ~(1 << part_num);
+    mPendingPartMap = (mPendingPartMap >> 1);
     if(!mInsertBroadCasted) {
         char msg[255];
         SLOGD("Send Disk Insert Broadcast in partition adding");
